@@ -1,0 +1,142 @@
+
+=======================================================================
+Ejercicio 1
+=======================================================================
+
+hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" ' | wc -l 
+
+======================================================================
+Ejercicio 2
+======================================================================
+
+ hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" {print $2}' | sort | uniq -c
+
+======================================================================
+Ejercicio 3
+======================================================================
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep 'mbd31' | awk '{print $8}' | xargs -I {} hdfs fsck {} -files -blocks | grep -Eo 'blk_[0-9]+' | wc -l
+
+-- Para que no muestre los mensajes:
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep 'mbd31' | awk '{print $8}' | xargs -I {} hdfs fsck {} -files -blocks 2>/dev/null | grep -Eo 'blk_[0-9]+' | wc -l
+
+hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" {print $8}' | xargs -I {} hdfs fsck {} -files -blocks | grep -Eo 'blk_[0-9]+'
+
+
+________________________________________________________________________
+
+
+hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" {print $8}' | while read file; do blocks=$(hdfs fsck $file -blocks | grep 'Total blocks (validated):' | awk -F: '{print $2}' | awk '{print $1}'); echo "File: $file - Blocks: $blocks"; done
+
+
+
+======================================================================
+Ejercicio 4
+======================================================================
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep ' mbd31 ' | awk '{print $8}' | xargs -I {} hdfs fsck {} -files -blocks -locations 2>/dev/null | grep -oP 'len=\K[0-9]+' | sort | uniq -c
+
+
+
+hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" {print $8}' | xargs -I {} hdfs fsck {} -files -blocks -locations | grep -oP 'len=\K[0-9]+' | sort | uniq -c
+
+Resultado:
+315 1048576
+110 2097152
+9 3145728
+61 4194304
+3 5242880
+4 6291456
+5 7340032
+17 8388608
+
+
+======================================================================
+Ejercicio 5
+======================================================================
+
+hdfs dfs -mkdir /datos/practica-hdfs/alumnos/mbd31
+
+hdfs dfs -ls -R /datos/practica-hdfs | awk '$3 == "mbd31" {print $8}' | xargs -I {} hdfs dfs -cp {} /datos/practica-hdfs/alumnos/mbd31/
+
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep ' mbd31 ' | awk '{print $8}' | xargs -I {} hdfs dfs -cp {} /datos/practica-hdfs/alumnos/mbd31/
+
+
+======================================================================
+Ejercicio 6
+======================================================================
+Verificamos el espacio actual:
+
+hdfs dfs -du -s -h /datos/practica-hdfs/alumnos/mbd31/ 
+
+Cambiamos el nivel de réplica:
+
+hdfs dfs -setrep -w 2 /datos/practica-hdfs/alumnos/mbd31/
+
+Volvemos a comprobar:
+
+hdfs dfs -du -s -h /datos/practica-hdfs/alumnos/mbd31/ 
+
+======================================================================
+Ejercicio 7
+======================================================================
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep ' mbd31 ' | awk '{print $8}' | xargs -I {} sh -c 'hdfs dfs -cat {} | md5sum' | sort | uniq | wc -l
+
+hdfs dfs -ls -R /datos/practica-hdfs | grep ' mbd31 ' | awk '{print $8}' | xargs -I {} sh -c 'hdfs dfs -cat {} | md5sum' | sort | uniq | wc -l
+cat:
+
+
+Yo creo que el bueno es:
+hdfs dfs -ls -R /datos/practica-hdfs/alumnos/mbd31 | grep '^-' | awk '{print $8}' | xargs -I {} hdfs dfs -checksum {} | awk '{print $3}' | sort | uniq | wc -l
+
+======================================================================
+Ejercicio 8
+======================================================================
+
+hdfs fsck /datos/practica-hdfs/alumnos/mbd31 -files -blocks -locations
+
+
+======================================================================
+Ejercicio 9
+======================================================================
+
+Balanceo de Bloques:
+
+HDFS tiene una funcionalidad de balanceo que redistribuye los bloques entre los datanodes si uno de ellos se vuelve demasiado lleno o desequilibrado en comparación con otros. Si durante las próximas semanas algún datanode comenzara a almacenar una cantidad desproporcionada de bloques o a utilizar demasiado espacio en disco, HDFS puede decidir mover bloques a otros datanodes para balancear la carga. Esto afectaría tanto el número de bloques en cada datanode como la cantidad de espacio en disco que utilizan.
+
+Recuperación en HDFS:
+
+HDFS está diseñado para tolerar fallos de hardware. Si un datanode se cae o se desconecta temporalmente, HDFS detecta automáticamente esa pérdida y mientras tenga espacio disponible, intenta crear las replicas que faltan a partir de los datos existentes. 
+
+
+Las dos razones expuestas pueden cambiar la distribución de bloques y el espacio en los datanodes con el tiempo.
+
+
+
+import org.apache.spark.sql.SparkSession
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.conf.Configuration
+
+
+// Configuración de acceso al sistema de archivos HDFS
+val hadoopConfig = spark.sparkContext.hadoopConfiguration
+val hdfs = FileSystem.get(hadoopConfig)
+
+// Listamos los archivos del directorio y filtramos los que pertenecen a tu usuario "mbd31"
+val statusList = hdfs.listStatus(new Path("hdfs:///datos/practica-hdfs")).filter(fileStatus => fileStatus.getPath.getName.contains("mbd31")) 
+
+// Extraemos el número de réplicas para los archivos filtrados
+val fileReplicaCounts = statusList.map(fileStatus => {val replication =hdfs.getFileStatus(fileStatus.getPath).getReplication(fileStatus.getPath.getName,replication)})
+
+// Convertimos a un DataFrame para poder trabajar con los resultados
+import spark.implicits._
+val replicaDF = fileReplicaCounts.toSeq.toDF("fileName", "replicaCount")
+
+// Contamos cuántos archivos hay con cada valor de réplica
+val replicaSummary = replicaDF.groupBy("replicaCount").count()
+
+// Mostramos el resultado
+replicaSummary.show()
