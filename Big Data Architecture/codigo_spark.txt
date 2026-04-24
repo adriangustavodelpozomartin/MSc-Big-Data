@@ -1,0 +1,201 @@
+
+
+// Desde el nodo edge01, ejecutamos los siguientes comandos:
+ 
+// Este comando lista los archivos en la ruta HDFS /datos/gaia-download, extrae la octava columna (los nombres de los archivos) usando awk, y guarda esos nombres en el archivo local file_list.txt.
+
+hdfs dfs -ls /datos/gaia-download | awk '{print $8}' > file_list.txt
+
+//Sube el archivo local file_list.txt al sistema de archivos HDFS, colocándolo en el directorio /user/mbd31/.
+
+hdfs dfs -put file_list.txt /user/mbd31/
+
+//Iniciamos una sesión interactiva de Spark utilizando el shell de Scala.
+
+/opt/cloudera/parcels/SPARK2/bin/spark2-shell
+
+========================================================================================
+
+                                        SPARK
+
+========================================================================================
+
+//Este comando lee el archivo file_list.txt desde HDFS y obtiene todos los nombres de los archivos que contiene, guardándolos en una lista para poder trabajar con ellos en el código.
+
+val fileList = spark.sparkContext.textFile("hdfs:///user/mbd31/file_list.txt").collect()
+
+// Definimos el tamaño del lote
+val batchSize = 1000
+val filteredFileList = fileList.filter(_.nonEmpty)
+val numBatches = math.ceil(filteredFileList.length.toDouble / batchSize).toInt
+
+// Librerías que vamos a necesitar
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.SparkSession
+
+========================================================================
+Ejercicio 1
+========================================================================
+
+// Inicializamos un contador total
+var totalStars = 0L
+
+// Procesamos los archivos en lotes
+for (i <- 0 until numBatches) {
+  // Determinar los límites del lote
+  val start = i * batchSize
+  val end = math.min(start + batchSize, filteredFileList.length)
+  
+  // Obtenemos el lote actual
+  val batchFiles = filteredFileList.slice(start, end)
+  
+  // Leemos los archivos del lote en un DataFrame
+  val dfBatch = spark.read.option("header", "true").csv(batchFiles: _*)
+  
+  // Contamos el número de estrellas en el lote actual
+  val starCount = dfBatch.count()
+  
+  // Acumulamos el número de estrellas
+  totalStars += starCount
+  
+  // Mostramos el resultado parcial
+  println(s"Lote $i: Número de estrellas = $starCount")
+}
+
+// Mostramos el total de estrellas
+println(s"Número total de estrellas en todos los lotes = $totalStars")
+
+==========================================================================
+Ejercicio 2
+==========================================================================
+
+// Inicializamos un contador para las estrellas que cumplen la condición
+var validStarCount = 0L
+
+// Procesamos los archivos en lotes
+for (i <- 0 until numBatches) {
+  val start = i * batchSize
+  val end = math.min(start + batchSize, filteredFileList.length)
+  val batchFiles = filteredFileList.slice(start, end)
+
+  val dfBatch = spark.read.option("header", "true").csv(batchFiles: _*)
+  
+  // Comprobamos la condición en cada lote
+  val conditionDf = dfBatch.withColumn("condition", $"astrometric_n_good_obs_al" + $"astrometric_n_bad_obs_al" === $"astrometric_n_obs_al")
+  val validCount = conditionDf.filter($"condition" === true).count()
+
+  validStarCount += validCount // Sumar al contador general
+
+  println(s"Lote $i: Número de estrellas que cumplen la condición = $validCount")
+}
+
+println(s"Número total de estrellas que cumplen la condición: $validStarCount")
+
+==========================================================================
+Ejercicio 3
+==========================================================================
+
+// Variable para almacenar los resultados
+var groupByGoodObsTotal: DataFrame = spark.emptyDataFrame
+
+// Esta función une dos DataFrames sumando los valores de la columna "count".
+def combineDataFrames(df1: DataFrame, df2: DataFrame): DataFrame = {
+  // Nos aseguramos de que ambas columnas de conteo tengan nombres consistentes
+  val df1Renamed = df1.withColumnRenamed("count", "count_1")
+  val df2Renamed = df2.withColumnRenamed("count", "count_2")
+
+  // Combinamos los DataFrames sumando los conteos
+  val combined = df1Renamed.join(df2Renamed, Seq("astrometric_n_good_obs_al"), "outer")
+    .withColumn("count_total", coalesce($"count_1", lit(0)) + coalesce($"count_2", lit(0)))
+    .drop("count_1").drop("count_2") // Eliminamos las columnas temporales
+
+  // Nos aseguramos de que el DataFrame resultante tenga la columna "count" con el nombre adecuado
+  combined.withColumnRenamed("count_total", "count")
+}
+
+// Procesar los archivos en lotes
+for (i <- 0 until numBatches) {
+  val start = i * batchSize
+  val end = math.min(start + batchSize, filteredFileList.length)
+  val batchFiles = filteredFileList.slice(start, end)
+
+  // Leemos el lote actual
+  val dfBatch = spark.read.option("header", "true").csv(batchFiles: _*)
+
+  // Agrupamos el lote actual por "astrometric_n_good_obs_al" y contamos las ocurrencias
+  val groupByGoodObs = dfBatch.groupBy("astrometric_n_good_obs_al").count()
+
+  // Agregamos el resultado del lote actual al total
+  if (groupByGoodObsTotal.isEmpty) {
+    groupByGoodObsTotal = groupByGoodObs
+  } else {
+    // Realizamos la agregación acumulada entre los lotes
+    groupByGoodObsTotal = combineDataFrames(groupByGoodObsTotal, groupByGoodObs)
+  }
+}
+
+// Mostrar el agrupado total
+groupByGoodObsTotal.show(1000, truncate=false)
+
+
+==========================================================================
+Ejercicio 4
+==========================================================================
+
+
+// Variable para almacenar los resultados
+var groupByRatioTotal: DataFrame = spark.emptyDataFrame
+
+
+// Esta función une dos DataFrames. En el bucle, generamos un data frame con el ratio 
+// por cada lote de archivos. Al final del bucle, unimos dicho data frame con el 
+// que va almacenando el resultado general (groupByRatioTotal) a través de la función
+// combineDataFrames.
+
+
+def combineDataFrames(df1: DataFrame, df2: DataFrame): DataFrame = {
+  // Nos aseguramos de que ambas columnas de conteo tengan nombres consistentes
+  val df1Renamed = df1.withColumnRenamed("count", "count_1")
+  val df2Renamed = df2.withColumnRenamed("count", "count_2")
+
+  // Combinamo los DataFrames sumando los conteos
+  val combined = df1Renamed.join(df2Renamed, Seq("ratio"), "outer")
+    .withColumn("count_total", coalesce($"count_1", lit(0)) + coalesce($"count_2", lit(0)))
+    .drop("count_1").drop("count_2") // Eliminamos las columnas temporales
+
+  // Nos aseguramos de que el DataFrame resultante tenga la columna "count" con el nombre adecuado
+  combined.withColumnRenamed("count_total", "count")
+}
+
+
+
+// En este bucle, realizamos la agrupación por ratios para cada lote y antes de que termine el 
+// bucle, añadimos este conteo al conteo general.
+
+for (i <- 0 until numBatches) {
+        val start = i * batchSize
+        val end = math.min(start + batchSize, filteredFileList.length)
+        val batchFiles = filteredFileList.slice(start, end)
+      
+        // Leemos el lote actual
+        val dfBatch = spark.read.option("header", "true").csv(batchFiles: _*)
+      
+        // Calculamos el ratio en el lote actual
+        val ratioDf = dfBatch.withColumn("ratio", (($"astrometric_n_good_obs_al" / $"astrometric_n_obs_al") * 100).cast("int"))
+      
+        // Agrupamos por ratio y contamos las ocurrencias en el lote actual
+        val groupByRatio = ratioDf.groupBy("ratio").count()
+      
+        // Agregamos el resultado del lote actual al total
+
+        if (groupByRatioTotal.isEmpty) {
+          groupByRatioTotal = groupByRatio
+        } else {
+          // Realizamos la agregación acumulada entre los lotes
+          groupByRatioTotal = combineDataFrames(groupByRatioTotal, groupByRatio)
+        }
+      }
+// Imprimimos el resultado por pantalla
+groupByRatioTotal.show(100, truncate=false)
+
