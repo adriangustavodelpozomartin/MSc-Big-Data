@@ -1,0 +1,9 @@
+Resultados práctica 3
+
+season_max_points: 2005-06
+season_min_points: 2013-14
+avg_career_points: 24.987592867756316
+avg_career_assists: 4.6944279346211
+avg_career_rebounds: 5.239450222882614
+better_in_post_season: [True, False, False, False, True, True, True, True, 'N/A', False, True, True, True, True, False, True, 'N/A', 'N/A', 'N/A', 'N/A']
+

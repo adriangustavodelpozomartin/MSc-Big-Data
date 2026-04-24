@@ -1,0 +1,157 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "05a28590-c9c6-4502-ba4b-f48dda5b4243",
+   "metadata": {},
+   "source": [
+    "# PRÁCTICA 7: SPIDER NIVEL 2"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "id": "775bac81-2e67-4442-91bf-33a4f57502ec",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Importamos las librerías necesarias\n",
+    "import csv\n",
+    "import requests\n",
+    "from bs4 import BeautifulSoup\n",
+    "import csv\n",
+    "import requests\n",
+    "import time\n",
+    "import os"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "7055339b-fea1-40f5-b06f-04a0bbbd2ed6",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Archivo universities.csv creado con éxito.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Definimos el prefijo para construir URLs completas a partir de enlaces relativos de Wikipedia.\n",
+    "BASE_URL = \"https://en.wikipedia.org\"\n",
+    "\n",
+    "# Abrimos el archivo \"countries.csv\" en modo lectura para cargar los datos de los países y sus URLs.\n",
+    "with open(\"countries.csv\", \"r\", encoding=\"utf-8\") as csvfile:\n",
+    "    # Creamos un lector de archivos CSV con el delimitador de punto y coma.\n",
+    "    reader = csv.reader(csvfile, delimiter=';')\n",
+    "    # Convertimos todo el contenido del archivo en una lista de filas y lo almacenamos en \"country_matrix\".\n",
+    "    country_matrix = list(reader)\n",
+    "\n",
+    "# Seleccionamos la primera fila de \"country_matrix\", que contiene los nombres de las columnas.\n",
+    "header = country_matrix[0]  # [\"CountryName\", \"CountryUrl\"]\n",
+    "\n",
+    "# Obtenemos el resto de las filas (es decir, los datos de los países y sus URLs).\n",
+    "data_rows = country_matrix[1:]\n",
+    "\n",
+    "# Creamos un conjunto para rastrear las universidades ya guardadas y evitar duplicados.\n",
+    "saved_universities = set()\n",
+    "\n",
+    "# Creamos (o sobrescribimos si ya existe) un archivo CSV llamado \"universities.csv\" en modo escritura.\n",
+    "with open(\"universities.csv\", \"w\", newline=\"\", encoding=\"utf-8\") as csvfile:\n",
+    "    # Creamos un objeto escritor de CSV con un delimitador de punto y coma.\n",
+    "    writer = csv.writer(csvfile, delimiter=';')\n",
+    "    # Escribimos la cabecera del archivo, añadiendo columnas para las universidades y sus URLs.\n",
+    "    writer.writerow([\"CountryName\", \"CountryUrl\", \"UniversityName\", \"UniversityUrl\"])\n",
+    "\n",
+    "    # Recorremos las filas de datos obtenidas de \"countries.csv\".\n",
+    "    for row in data_rows:\n",
+    "        # Extraemos el nombre del país y la URL del país de cada fila.\n",
+    "        country_name, country_url = row\n",
+    "\n",
+    "        # Comprobamos si el país actual es Alemania (Germany), ignorando diferencias de mayúsculas.\n",
+    "        if country_name.lower() == \"germany\":\n",
+    "            # Construimos la URL completa (ya está completa en este caso, pero mantenemos el proceso por consistencia).\n",
+    "            full_url = country_url\n",
+    "\n",
+    "            # Realizamos una solicitud para descargar el contenido HTML de la página del país.\n",
+    "            response = requests.get(full_url)\n",
+    "            if response.status_code == 200:  # Verificamos que la solicitud fue exitosa.\n",
+    "                # Convertimos el contenido HTML en un objeto que podemos analizar.\n",
+    "                soup = BeautifulSoup(response.content, \"html.parser\")\n",
+    "\n",
+    "                # Si nos fijamos en la página web, hay una sección, titulada \"Universities alphabetically\" que contiene una lista \n",
+    "                # de todas las universidades alemanas ordenadas alfabéticamente, por subescciones. Por ello, definimos una lista donde \n",
+    "                # guardamos el nombre de estas subsecciones que nos permitirá buscar las mencionadas subsecciones alfabéticas de \n",
+    "                # de las universidades (A–D, E–H, I–N, O–Z).\n",
+    "                subsections = [\"A–D\", \"E–H\", \"I–N\", \"O–Z\"]\n",
+    "                for subsection in subsections:\n",
+    "                    # Usamos el identificador de cada subsección para localizarla en el HTML.\n",
+    "                    section = soup.find('h3', id=subsection)\n",
+    "\n",
+    "                    # Si encontramos esta subsección, buscamos la lista de universidades asociadas.\n",
+    "                    if section:\n",
+    "                        # Localizamos el elemento <ul> que sigue inmediatamente a esta subsección. Este elemento <ul> se utiliza comúnmente \n",
+    "                        # para agrupar una colección de elementos relacionados, como un conjunto de enlaces o puntos de una lista. En nuestro\n",
+    "                        # caso, un ejemplo sería:\n",
+    "                        # <ul>\n",
+    "                            #<li><a href=\"/wiki/Technical_University_of_Ilmenau\" class=\"mw-redirect\" title=\"Technical University of Ilmenau\">Technical University of Ilmenau</a></li>\n",
+    "                            #<li><a href=\"/wiki/Jacobs_University_Bremen\" class=\"mw-redirect\" title=\"Jacobs University Bremen\">Jacobs University Bremen</a></li>\n",
+    "                            # ...\n",
+    "                        university_list = section.find_next('ul')\n",
+    "\n",
+    "                        # Si existe una lista de universidades, procedemos a extraer los enlaces.\n",
+    "                        if university_list:\n",
+    "                            # Obtenemos todos los elementos <a> dentro de la lista que contienen enlaces. (véase el ejemplo anterior)\n",
+    "                            university_links = university_list.find_all('a', href=True)\n",
+    "\n",
+    "                            # Recorremos cada enlace encontrado.\n",
+    "                            for link in university_links:\n",
+    "                                # Extraemos el nombre de la universidad del texto visible del enlace. Por ejemplo, en:\n",
+    "                                # <li><a href=\"/wiki/University_of_Berlin\">University of Berlin</a></li>\n",
+    "                                # el texto visible del enlace sería University of Berlin, que es lo que obtenemos con link.text. \n",
+    "                                # Además, strip() elimina cualquier espacio en blanco extra al inicio o final del texto. \n",
+    "                                university_name = link.text.strip()\n",
+    "                                \n",
+    "                                # Construimos la URL completa de la universidad, usando el prefijo BASE_URL.\n",
+    "                                university_url = f\"{BASE_URL}{link['href']}\"\n",
+    "\n",
+    "                                # Comprobamos si la universidad ya ha sido guardada anteriormente.\n",
+    "                                # Esto es necesario porque hay universidades que están en dos subsecciones alfabéticas diferentes.\n",
+    "                                # Por ejemplo, la Jacobs University Bremen aparece tanto en la subsección A–D como en la subsección I–N.\n",
+    "                                if university_name not in saved_universities:\n",
+    "                                    # Añadimos la universidad al conjunto para evitar duplicados.\n",
+    "                                    saved_universities.add(university_name)\n",
+    "\n",
+    "                                    # Escribimos los datos de la universidad en el archivo \"universities.csv\".\n",
+    "                                    writer.writerow([country_name, full_url, university_name, university_url])\n",
+    "\n",
+    "# Mostramos un mensaje para indicar que el archivo \"universities.csv\" se ha creado con éxito.\n",
+    "print(\"Archivo universities.csv creado con éxito.\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

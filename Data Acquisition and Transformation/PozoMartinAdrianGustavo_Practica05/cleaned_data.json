@@ -1,0 +1,79 @@
+[
+    {
+        "Region": "Asia",
+        "Population": 4641000000,
+        "Density (inhabitants/km2)": 104.1,
+        "Most Populous Country": "India",
+        "Country Population": 1439090595,
+        "Most Populous City": "Tokyo Metropolis",
+        "City Population": 13515000,
+        "Most Populous Area": "Greater Tokyo Area",
+        "Area Population": 37400000
+    },
+    {
+        "Region": "Africa",
+        "Population": 1340000000,
+        "Density (inhabitants/km2)": 44.4,
+        "Most Populous Country": "Nigeria",
+        "Country Population": 211401000,
+        "Most Populous City": "Cairo",
+        "City Population": 9500000,
+        "Most Populous Area": "Greater Cairo",
+        "Area Population": 20076000
+    },
+    {
+        "Region": "Europe",
+        "Population": 747000000,
+        "Density (inhabitants/km2)": 73.4,
+        "Most Populous Country": "Russia, approx. 110 million in Europe",
+        "Country Population": 146171000,
+        "Most Populous City": "Moscow",
+        "City Population": 13200000,
+        "Most Populous Area": "Moscow metropolitan area",
+        "Area Population": 20004000
+    },
+    {
+        "Region": "Latin America",
+        "Population": 653000000,
+        "Density (inhabitants/km2)": 24.1,
+        "Most Populous Country": "Brazil",
+        "Country Population": 214103000,
+        "Most Populous City": "S\u00e3o Paulo City",
+        "City Population": 12252000,
+        "Most Populous Area": "S\u00e3o Paulo Metro Area",
+        "Area Population": 21650000
+    },
+    {
+        "Region": "Northern America",
+        "Population": 368000000,
+        "Density (inhabitants/km2)": 14.9,
+        "Most Populous Country": "United States",
+        "Country Population": 332909000,
+        "Most Populous City": "New York City",
+        "City Population": 8804000,
+        "Most Populous Area": "New York metropolitan area",
+        "Area Population": 23582649
+    },
+    {
+        "Region": "Oceania",
+        "Population": 42000000,
+        "Density (inhabitants/km2)": 5.0,
+        "Most Populous Country": "Australia",
+        "Country Population": 25917000,
+        "Most Populous City": "Sydney",
+        "City Population": 5367000,
+        "Most Populous Area": "No applicable",
+        "Area Population": "No applicable"
+    },
+    {
+        "Region": "Antarctica",
+        "Population": 4000,
+        "Density (inhabitants/km2)": 0.0,
+        "Most Populous Country": "No applicable",
+        "Country Population": "No applicable",
+        "Most Populous City": "McMurdo Station",
+        "City Population": 1258,
+        "Most Populous Area": "No applicable",
+        "Area Population": "No applicable"
+    }
+]
