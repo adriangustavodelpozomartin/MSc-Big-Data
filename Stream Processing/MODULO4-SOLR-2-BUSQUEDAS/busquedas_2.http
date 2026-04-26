@@ -1,0 +1,21 @@
+##### FACETS ################
+###https://solr.apache.org/guide/6_6/faceting.html
+### ¿Para qué sirve el facetado? https://www.griddynamics.com/blog/multi-select-faceting-for-nested-documents-in-solr
+### FACET por género
+
+### Añadimos la funcionalidad de facetado
+### Hace como un agrupado
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*&facet=true&facet.field=genre_s
+### Facet por género & in_stock
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*&facet=true&facet.field=genre_s&facet.field=inStock
+### Facet
+
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*&facet=true&facet.range=price&facet.range.start=0&facet.range.end=10&facet.range.gap=2
+### Hacemos los rangos a mano
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*&facet=true&facet.query=price:[0 TO 6]&facet.query=price:{6 TO 10]
+### Hacemos un group (creo que faltan:)
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*&group=true&group.field=genre_s&group.limit=10
+### Estadísticas de un campo
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*&stats=true&stats.field=genre_s
+### (Corregir)
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=genre_s:fantasy&fl=author,name&sort=name desc

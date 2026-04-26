@@ -1,0 +1,151 @@
+#############################
+##### COLECCIONES ###########
+##############################
+#Documentación referencia para colecciones
+#https://solr.apache.org/guide/6_6/collections-api.html
+#worker02.bigdata.alumnos.upcont.es:8983/solr
+#El cluster tiene instalada la versión 4.10.3
+
+# Listar colecciones
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/admin/collections?action=LIST&wt=json
+
+###
+# Borrar una colección
+### BUSCAR DELETE EN LA DOCUMENTACIÓN
+### GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/admin/collection
+# Crear una colección <mbdXX_books> con un shard y una replica
+### Hecho en el documento de la práctica anteior
+
+###
+#############################
+##### SCHEMA ################
+##############################
+#https://solr.apache.org/guide/6_6/schema-api.html
+
+# Retrieve the entire schema for collections
+### Quitamos el admin con respecto a los http anteriores
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/schema
+###
+# List fields for collection
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/schema/fields
+
+###
+# List UniqueKey
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/schema/uniquekey
+
+
+###
+# Show schema version
+
+###
+# Add new field - genre_s
+# En la versión actual no funciona , hay que hacerlo vía solrctl
+
+
+
+###
+# Delete field - author
+# En la versión actual no funciona , hay que hacerlo vía solrctl
+
+
+#############################
+##### INDEX HANDLERS #########
+##############################
+
+# curl 'http://localhost:8983/solr/my_collection/update?commit=true' --data-binary @example/exampledocs/books.csv -H 'Content-type:application/csv'
+#https://solr.apache.org/guide/7_1/uploading-data-with-index-handlers.html
+
+
+
+
+
+#############################
+##### BÚSQUEDAS ###########
+##############################
+#https://solr.apache.org/guide/6_6/query-syntax-and-parsing.html
+#To process a search query, a request handler calls a query parser, which interprets the terms and parameters of a
+#query. Different query parsers support different syntax. Solr’s default query parser is known as the Standard Query
+#Parser,or more commonly just the "lucene" query parser.
+
+#Búsquedas de todos los resultados sobre una colección
+### La q es de query
+### *:* todos los campos:todos los valores
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=*:*
+
+###
+#Búsqueda de los libros del autor George R Michael
+#EL nombre del autor tiene que ser exacto
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=author:"George R.R. Martin"
+
+###
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=author:"Martin"
+
+
+###
+#Búsqueda del libro que contiene swords (diferencia con el caso anterior)
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=name:"Swords"
+### Para ver cómo están indexados los campos de mi esquema, vamos al schema.
+### Si vamos al schema, vemos como el título esta tokeinzado, le aplica un lower y minGramSize = "2", es decir,
+### tokeinzado a partir de dos caracteres.
+### tokens_texto no es un tipo definifo, lo definimos de nuevo
+
+
+###
+#Búsqueda de los que tenemos que pedir al almacén que están agotados
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=inStock:false
+
+
+###
+#Buscamos los de GeorgeR que están en stock con un fq (qué opción es mejor para el fq, el autor o el stock)
+### fq es filter query --> Más optimo
+### q query
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/select?q=inStock:false&fq=author:"George R.R. Martin"&price<10
+
+###
+#Buscamos los de GoergeR que están en stock, precio menor de 10 y categoría fantasía
+
+###
+#Misma que anterior pero solo muestro título e id
+
+
+###
+#Misma que anterior ordenando por título asc
+
+
+#############################
+##### FACETS ################
+##############################
+#https://solr.apache.org/guide/6_6/faceting.html
+#Todos los resultados agrupados y ordenados por género
+
+
+###
+# Combinación Facets con Ranges.
+# Los rangos se usan para fields numéricos o fechas
+#Hacer un conteo de libros por generos distribuidos por range de precio, empezando en 5 hasta 10 con gap = 1
+
+
+###
+
+#############################
+##### STATISTICS ############
+#############################
+
+
+################################################
+##### COMBINE FACETS AND STATISTICS ############
+################################################
+
+#Fuzzy searches
+#Damerau–Levenshtein distance : It is defined as the minimum number of primitive operations to convert one string to the other
+#insertion: geek –> greek
+#deletion: geek –> gee
+#substitution: geek –> geez
+#transposition: geek –> geke
+
+#Quiero encontrar the book of three
+#Probar con tree, thread, tres (y elegir distancia adecuada)
+
+
+#NGram - Búsquedas a partir de dos caracteres (se puede ver en el schema.xml)
+
