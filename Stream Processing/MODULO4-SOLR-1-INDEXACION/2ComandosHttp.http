@@ -1,0 +1,10 @@
+### Creamos una coleccion vacía para asociarla a la carpeta de solr_configs que acabamos de subir a solr
+GET http://worker02.bigdata.alumnos.upcont.es:8983/solr/admin/collections?action=CREATE&name=books_mbd31_24&numShards=1&replicationFactor=1
+### Para la indexación usamos el CSV Handler que provee Solr. añadimos el paráemtro
+### de la cabecera para aliminarla y que no la indexe y también que se salte con skip los dos campos que estan en el csv pero
+### no están en el schema.xml
+
+POST http://worker02.bigdata.alumnos.upcont.es:8983/solr/books_mbd31_24/update?commit=true&header=true&skip=series_t,sequence_i
+Content-Type: application/csv
+
+< /Users/adriandelpozo/IdeaProjects/tpbd-students-fork/MODULO4-SOLR-1-INDEXACION/resources/books.csv

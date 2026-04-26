@@ -1,0 +1,6 @@
+-- Crear una instancia con los fichero spor defecto de solr en el edge
+solrctl instancedir --generate $HOME/solr_configs
+-- MODIFICAR EL schema.xml adaptandolo a los datos que vamos a indexar
+-- Subir la carpeta de solr_configs desde el edge a solr
+solrctl instancedir --create books_mbd31_24 $HOME/solr_configs
+
